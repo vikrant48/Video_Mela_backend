@@ -138,8 +138,8 @@ const loginUser = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .cookie("accessToken", options)
-        .cookie("refreshToken", options)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
         .json(
             new ApiResponse(
                 200,
@@ -231,16 +231,25 @@ const refreshAccessToken = asyncHandler(async(req, res)=>{
 const changePassword = asyncHandler(async(req, res)=>{
     const {oldPassword, newPassword} = req.body
 
-    const user = User.findById(req.user?._id)
+    const user = await User.findById(req.user?._id)
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    // Call the method to check if the old password is correct
     const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
 
     if (!isPasswordCorrect) {
         throw new ApiError(400, "Invalid old password")  
     }
-
+    
+    // Update the user's password
     user.password = newPassword
+
+    // Save the user, skipping validation if needed
     await user.save({validateBeforeSave: false})
 
+    // Return a success response
     return res
     .status(200)
     .json(new ApiResponse(200, {}, "Password changed successfully"))
