@@ -5,7 +5,7 @@ import {
     logoutUser, 
     refreshAccessToken, 
     changePassword, 
-    getUser, 
+    getCurrentUser, 
     updateAccountDetails,
     updateUserAvatar, 
     updateUserCoverImage, 
@@ -38,7 +38,7 @@ router.route("/login").post(loginUser)
 router.route("/logout").post(verifyJWT, logoutUser)
 router.route("/refresh_token").post(refreshAccessToken )
 router.route("/change_password").post(verifyJWT, changePassword)
-router.route("/current_user").get(verifyJWT, getUser)
+router.route("/current_user").get(verifyJWT, getCurrentUser)
 router.route("/update_account").patch(verifyJWT, updateAccountDetails)
 router.route("/avatar").patch(verifyJWT, upload.single("avatar"), updateUserAvatar)
 router.route("/coverImage").patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage)

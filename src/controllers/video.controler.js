@@ -9,9 +9,10 @@ import { uploadonCloudinary, deleteonCloudinary } from "../utils/Cloudinary.js"
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
+    const { page = 1, limit = 10, query, sortBy= createdAt, sortType = asc, userId } = req.query
     //TODO: get all videos based on query, sort, pagination
 
+    console.log(userId)
     const pipeline = [];
 
     if (query) {
@@ -20,7 +21,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
                 index: "search-videos",
                 text: {
                     query: query,
-                    path: ["title", "description"] //search only on title, desc
+                    path: ["title", "description"] 
                 }
             }
         });
