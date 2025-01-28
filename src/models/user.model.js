@@ -58,6 +58,7 @@ const userSchema = new Schema(
     }
 )
 
+// Pre middleware functions are executed one after another, when each middleware calls next.
 userSchema.pre("save", async function (next) {
     if(!this.isModified("password")) return next();
 
