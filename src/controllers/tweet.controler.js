@@ -1,12 +1,11 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import {Tweet} from "../models/xtweet.model.js"
-import {User} from "../models/user.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 
 const createTweet = asyncHandler(async (req, res) => {
-    //TODO: create tweet
+    // create tweet
     const { content } = req.body;
 
     if (!content) {
@@ -28,7 +27,7 @@ const createTweet = asyncHandler(async (req, res) => {
 })
 
 const getUserTweets = asyncHandler(async (req, res) => {
-    // TODO: get user tweets
+    // get user tweets
     const { userId } = req.params;
 
     if (!isValidObjectId(userId)) {
@@ -111,6 +110,7 @@ const getUserTweets = asyncHandler(async (req, res) => {
 })
 
 const updateTweet = asyncHandler(async (req, res) => {
+    // update tweet 
 
     const { content } = req.body;
     const { tweetId } = req.params;
@@ -149,11 +149,11 @@ const updateTweet = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .json(new ApiResponse(200, newTweet, "Tweet updated successfully"));
-    //TODO: update tweet
+        .json(new ApiResponse(200, newTweet, "Tweet updated successfully"))
 })
 
 const deleteTweet = asyncHandler(async (req, res) => {
+    // delete tweet
     const { tweetId } = req.params;
 
     if (!isValidObjectId(tweetId)) {
@@ -174,8 +174,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .json(new ApiResponse(200, {tweetId}, "Tweet deleted successfully"));
-    //TODO: delete tweet
+        .json(new ApiResponse(200, {tweetId}, "Tweet deleted successfully"))
 })
 
 export {

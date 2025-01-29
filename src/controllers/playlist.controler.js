@@ -9,7 +9,7 @@ import { Video} from '../models/video.model.js'
 const createPlaylist = asyncHandler(async (req, res) => {
     const {name, description} = req.body
 
-    //TODO: create playlist
+    // create playlist
 
     if (!name || !description) {
         throw new ApiError(400, "name and description both are required");
@@ -34,7 +34,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
 
 const getUserPlaylists = asyncHandler(async (req, res) => {
     const {userId} = req.params
-    //TODO: get user playlists
+    // get user playlists
 
     if (!isValidObjectId(userId)) {
         throw new ApiError(400, "Invalid userId");
@@ -83,7 +83,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
 
 const getPlaylistById = asyncHandler(async (req, res) => {
     const {playlistId} = req.params
-    //TODO: get playlist by id
+    // get playlist by id
 
     if (!isValidObjectId(playlistId)) {
         throw new ApiError(400, "Invalid PlaylistId");
@@ -222,7 +222,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     const {playlistId, videoId} = req.params
-    // TODO: remove video from playlist
+    // remove video from playlist
 
     if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid PlaylistId or videoId");
@@ -272,7 +272,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 
 const deletePlaylist = asyncHandler(async (req, res) => {
     const {playlistId} = req.params
-    // TODO: delete playlist
+    // delete playlist
 
     if (!isValidObjectId(playlistId)) {
         throw new ApiError(400, "Invalid PlaylistId");
@@ -304,7 +304,7 @@ const deletePlaylist = asyncHandler(async (req, res) => {
 const updatePlaylist = asyncHandler(async (req, res) => {
     const {playlistId} = req.params
     const {name, description} = req.body
-    //TODO: update playlist
+    // update playlist
 
     if (!name || !description) {
         throw new ApiError(400, "name and description both are required");
