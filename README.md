@@ -3,6 +3,10 @@
 ## Overview
 The backend of Video Mela is a RESTful API that powers the video-sharing platform, offering robust authentication, media management, and scalable storage solutions.
 
+- [Model link](https://app.eraser.io/workspace/OO3HFmjKmUYmLl8JiwRk?origin=share)
+
+- [Frontend Link](https://github.com/vikrant48/Video_Mela_frontend)
+
 ---
 
 ## Features
