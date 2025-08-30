@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  videomela-backend:
+    build: .
+    image: videomela-backend:latest
+    container_name: videomela-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+      - MONGODB_URI=${MONGODB_URI}
+      - ACCESS_TOKEN_SECRET=${ACCESS_TOKEN_SECRET}
+      - REFRESH_TOKEN_SECRET=${REFRESH_TOKEN_SECRET}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - COOKIE_ORG=${COOKIE_ORG}
+    volumes:
+      - ./public/temp:/app/public/temp
+    restart: unless-stopped
+    networks:
+      - videomela-network
+
+networks:
+  videomela-network:
+    driver: bridge
+
+volumes:
+  temp_uploads:
+    driver: local
