@@ -98,27 +98,33 @@ const publishAVideo = asyncHandler(async (req, res) => {
         throw new ApiError(400, "All fields are required");
     }
 
-    const videoFileLocalPath = req.files?.videoFile[0].path;
-    const thumbnailLocalPath = req.files?.thumbnail[0].path;
+    const videoFileBuffer = req.files?.videoFile?.[0];
+    const thumbnailBuffer = req.files?.thumbnail?.[0];
 
-    if (!videoFileLocalPath) {
-        throw new ApiError(400, "videoFileLocalPath is required")
+    if (!videoFileBuffer) {
+        throw new ApiError(400, "Video file is required")
     }
 
-    if (!thumbnailLocalPath) {
-        throw new ApiError(400, "thumbnailLocalPath is required")
+    if (!thumbnailBuffer) {
+        throw new ApiError(400, "Thumbnail file is required")
     }
 
     // upload to cloudinary
-    const videoFile = await uploadonCloudinary(videoFileLocalPath)
-    const thumbnail = await uploadonCloudinary(thumbnailLocalPath)
+    const videoFile = await uploadonCloudinary(videoFileBuffer.buffer, {
+        folder: 'videos',
+        resource_type: 'video'
+    })
+    const thumbnail = await uploadonCloudinary(thumbnailBuffer.buffer, {
+        folder: 'thumbnails',
+        transformation: [{ width: 1280, height: 720, crop: 'fill' }]
+    })
 
     if (!videoFile) {
-        throw new ApiError(400, "Video file not found");
+        throw new ApiError(400, "Video file upload failed");
     }
 
     if (!thumbnail) {
-        throw new ApiError(400, "Thumbnail not found");
+        throw new ApiError(400, "Thumbnail upload failed");
     }
 
     // create video
@@ -138,11 +144,11 @@ const publishAVideo = asyncHandler(async (req, res) => {
         isPublished: false
     })
 
-    //check if video is uploades or not 
+    //check if video is uploaded or not 
     const videoUploaded = await Video.findById(video._id)
 
     if (!videoUploaded) {
-        throw new ApiError(500, "videoUpload failed please try again !!!")
+        throw new ApiError(500, "Video upload failed please try again !!!")
     }
 
     return res
@@ -312,16 +318,19 @@ const updateVideo = asyncHandler(async (req, res) => {
     //deleting old thumbnail and updating with new one
     const thumbnailToDelete = video.thumbnail.public_id;
 
-    const thumbnailLocalPath = req.file?.path;
+    const thumbnailFile = req.file;
 
-    if (!thumbnailLocalPath) {
+    if (!thumbnailFile) {
         throw new ApiError(400, "thumbnail is required")
     }
 
-    const thumbnail = await uploadonCloudinary(thumbnailLocalPath)
+    const thumbnail = await uploadonCloudinary(thumbnailFile.buffer, {
+        folder: 'thumbnails',
+        transformation: [{ width: 1280, height: 720, crop: 'fill' }]
+    })
 
     if (!thumbnail) {
-        throw new ApiError(400, "thumbnail not found");
+        throw new ApiError(400, "thumbnail upload failed");
     }
 
     const updatedVideo = await Video.findByIdAndUpdate(
