@@ -55,16 +55,16 @@ const registerUser = asyncHandler(async (req, res) => {
     }
     //console.log(req.files);
 
-    // Check if files are uploaded
-    if (!req.files) {
-        throw new ApiError(400, "Avatar and cover image files are required. Please upload files using multipart/form-data.")
+    if (!req.files ) {
+        throw new ApiError(400, "Please upload an images using multipart/form-data.")
     }
 
+    // Check for avatar file (required)
     const avatarFile = req.files?.avatar?.[0];
     const coverImageFile = req.files?.coverImage?.[0];
 
     if (!avatarFile) {
-        throw new ApiError(400, "Avatar file is required. Please upload an avatar image.")
+        throw new ApiError(400, "Avatar file is required. Please upload an avatar image using multipart/form-data.")
     }
 
     // Upload avatar to Cloudinary (required)
@@ -150,7 +150,9 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const options = {
         httpOnly: true,
-        secure: true
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 
     return res
@@ -186,7 +188,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 
     const options = {
         httpOnly: true,
-        secure: true
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     }
 
     return res
@@ -201,7 +204,8 @@ const refreshAccessToken = asyncHandler(async(req, res)=>{
     const newRefreshToken = req.cookies.refreshToken || req.body.refreshToken
 
     if (!newRefreshToken) {
-        throw new ApiError(401, "Invalid Token")
+        console.log('No refresh token provided in request');
+        throw new ApiError(401, "No refresh token provided")
     }
 
     try {
@@ -219,10 +223,12 @@ const refreshAccessToken = asyncHandler(async(req, res)=>{
     
         const options = {
             httpOnly: true,
-            secure: true
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
         }
     
-        const {newgenAccessToken, newgenRefreshToken} = generateAccessAndRefreshToken(user._id)
+        const {accessToken: newgenAccessToken, refreshToken: newgenRefreshToken} = await generateAccessAndRefreshToken(user._id)
     
         return res
         .status(200)

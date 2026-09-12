@@ -9,10 +9,9 @@ const app = express()
 app.use(cors({
     origin: function (origin, callback) {
         const allowedOrigins = [
-            'http://localhost:5173',
-            'http://localhost:3000',
-            'https://videomela-backend.onrender.com',
-            process.env.COOKIE_ORG
+            process.env.LOCAL_FRONTEND_URL,
+            process.env.COOKIE_ORG,
+            process.env.FRONTEND_URL
         ].filter(Boolean)
         
         // Allow requests with no origin (like mobile apps or curl requests)
@@ -21,6 +20,7 @@ app.use(cors({
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true)
         } else {
+            console.log('CORS blocked origin:', origin)
             callback(new Error('Not allowed by CORS'))
         }
     },
