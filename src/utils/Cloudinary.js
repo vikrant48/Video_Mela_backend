@@ -1,17 +1,18 @@
 import { v2 as cloudinary } from 'cloudinary';
 import fs from "fs"
+import { logger } from "./logger.js"
 
 
-cloudinary.config({ 
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
-    api_key: process.env.CLOUDINARY_API_KEY, 
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const uploadonCloudinary = async (fileBuffer, options = {})=>{
+const uploadonCloudinary = async (fileBuffer, options = {}) => {
     try {
-        if(!fileBuffer) return null
-        
+        if (!fileBuffer) return null
+
         return new Promise((resolve, reject) => {
             cloudinary.uploader.upload_stream(
                 {
@@ -28,33 +29,32 @@ const uploadonCloudinary = async (fileBuffer, options = {})=>{
                 }
             ).end(fileBuffer)
         })
-        
+
     } catch (error) {
-        console.log('Cloudinary upload error:', error)
+        logger.error('Cloudinary upload error:', error)
         return null
     }
 }
 
 // Legacy function for backward compatibility (file path uploads)
-const uploadFileToCloudinary = async (localFilePath)=>{
+const uploadFileToCloudinary = async (localFilePath) => {
     try {
-        if(!localFilePath) return null
+        if (!localFilePath) return null
         // upload
         const uploadedFile = await cloudinary.uploader.upload(localFilePath, {
             resource_type: 'auto'
         })
-        // console.log('File uploaeded Successfully ', uploadedFile.url)
         fs.unlinkSync(localFilePath) // this will also unlink from local path 
         return uploadedFile
-        
+
     } catch (error) {
         fs.unlinkSync(localFilePath)
         return null
-        
+
     }
 }
 
-const deleteonCloudinary = async (public_id, resource_type="image") => {
+const deleteonCloudinary = async (public_id, resource_type = "image") => {
     try {
         if (!public_id) return null;
 
@@ -63,9 +63,9 @@ const deleteonCloudinary = async (public_id, resource_type="image") => {
             resource_type: `${resource_type}`
         });
     } catch (error) {
-        console.log("delete on cloudinary failed", error);
+        logger.error("delete on cloudinary failed", error);
         return error;
     }
 }
 
-export {uploadonCloudinary, uploadFileToCloudinary, deleteonCloudinary}
+export { uploadonCloudinary, uploadFileToCloudinary, deleteonCloudinary }

@@ -2,8 +2,12 @@ import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import morgan from "morgan"
+import { logger } from "./utils/logger.js"
 
 const app = express()
+
+// Trust proxy for reverse proxies (Render, Vercel, Railway, Nginx) so secure cookies work properly
+app.set("trust proxy", 1)
 
 // middleware 
 app.use(cors({
@@ -13,25 +17,37 @@ app.use(cors({
             process.env.COOKIE_ORG,
             process.env.FRONTEND_URL
         ].filter(Boolean)
-        
+
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true)
-        
+
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true)
         } else {
-            console.log('CORS blocked origin:', origin)
+            logger.warn('CORS blocked origin:', origin)
             callback(new Error('Not allowed by CORS'))
         }
     },
     credentials: true
 }))
-app.use(express.json({limit: "16kb"}))
-app.use(express.urlencoded({extended:true, limit:"16kb"})) // url encoded
+app.use(express.json({ limit: "16kb" }))
+app.use(express.urlencoded({ extended: true, limit: "16kb" })) // url encoded
 app.use(express.static("public"))
 
 app.use(cookieParser())
 app.use(morgan(':method :url :status - :response-time ms'))
+
+// Custom request logger to print details for debugging remote auth issues
+app.use((req, res, next) => {
+    const hasAccessCookie = Boolean(req.cookies?.accessToken);
+    const hasRefreshCookie = Boolean(req.cookies?.refreshToken);
+    const authHeader = req.header("Authorization");
+    const hasAuthHeader = Boolean(authHeader);
+
+    logger.http(`${req.method} ${req.url} | Origin: ${req.get('origin') || 'N/A'} | IP: ${req.ip} | Cookies(Access:${hasAccessCookie}, Refresh:${hasRefreshCookie}) | AuthHeader:${hasAuthHeader ? 'Present' : 'None'}`);
+
+    next();
+})
 
 
 // import routes
@@ -91,4 +107,4 @@ app.use((err, req, res, next) => {
 })
 
 
-export {app}
+export { app }

@@ -9,10 +9,9 @@ import { uploadonCloudinary, deleteonCloudinary } from "../utils/Cloudinary.js"
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy= createdAt, sortType = asc, userId } = req.query
+    const { page = 1, limit = 10, query, sortBy = createdAt, sortType = asc, userId } = req.query
     // get all videos based on query, sort, pagination
 
-    // console.log(userId)
     const pipeline = []
 
     if (query) {
@@ -21,7 +20,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
                 index: "search-videos",
                 text: {
                     query: query,
-                    path: ["title", "description"] 
+                    path: ["title", "description"]
                 }
             }
         });
@@ -92,7 +91,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body
-    
+
     // get video 
     if ([title, description].some((field) => field?.trim() === "")) {
         throw new ApiError(400, "All fields are required");
@@ -241,7 +240,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                 },
                 isLiked: {
                     $cond: {
-                        if: {$in: [req.user?._id, "$likes.likedBy"]},
+                        if: { $in: [req.user?._id, "$likes.likedBy"] },
                         then: true,
                         else: false
                     }
@@ -397,11 +396,11 @@ const deleteVideo = asyncHandler(async (req, res) => {
         video: videoId
     })
 
-     // delete video comments
+    // delete video comments
     await Comment.deleteMany({
         video: videoId,
     })
-    
+
     return res
         .status(200)
         .json(new ApiResponse(200, {}, "Video deleted successfully"));
