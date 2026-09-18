@@ -78,10 +78,15 @@ app.get("/", (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack)
-    res.status(500).json({
-        message: "Something went wrong!",
-        error: process.env.NODE_ENV === "development" ? err.message : "Internal Server Error"
+    const statusCode = err.statusCode || 500
+    const message = err.message || "Something went wrong!"
+    console.error(err.stack || err)
+    res.status(statusCode).json({
+        statusCode,
+        success: false,
+        message,
+        error: message,
+        errors: err.errors || []
     })
 })
 
