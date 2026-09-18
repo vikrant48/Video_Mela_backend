@@ -6,26 +6,32 @@ import { logger } from "./utils/logger.js"
 
 const app = express()
 
-// Trust proxy for reverse proxies (Render, Vercel, Railway, Nginx) so secure cookies work properly
+// Trust proxy for reverse proxies (Render, Vercel) 
 app.set("trust proxy", 1)
 
 // middleware 
 app.use(cors({
     origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        const cleanOrigin = origin.replace(/\/$/, "");
+
         const allowedOrigins = [
             process.env.LOCAL_FRONTEND_URL,
             process.env.COOKIE_ORG,
-            process.env.FRONTEND_URL
-        ].filter(Boolean)
+            process.env.FRONTEND_URL,
+            "https://video-mela.vercel.app"
+        ]
+            .filter(Boolean)
+            .map(url => url.replace(/\/$/, ""));
 
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true)
-
-        if (allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true)
+        // Match exact allowed origins
+        if (allowedOrigins.includes(cleanOrigin)) {
+            callback(null, true);
         } else {
-            logger.warn('CORS blocked origin:', origin)
-            callback(new Error('Not allowed by CORS'))
+            logger.warn('CORS blocked origin:', origin);
+            callback(new Error('Not allowed by CORS'));
         }
     },
     credentials: true
@@ -44,7 +50,7 @@ app.use((req, res, next) => {
     const authHeader = req.header("Authorization");
     const hasAuthHeader = Boolean(authHeader);
 
-    logger.http(`${req.method} ${req.url} | Origin: ${req.get('origin') || 'N/A'} | IP: ${req.ip} | Cookies(Access:${hasAccessCookie}, Refresh:${hasRefreshCookie}) | AuthHeader:${hasAuthHeader ? 'Present' : 'None'}`);
+    logger.http(`${req.method} ${req.url} | Origin: ${req.get('origin')} | AuthHeader:${hasAuthHeader ? 'Present' : 'None'}`);
 
     next();
 })
