@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js"
 import { uploadonCloudinary, deleteonCloudinary } from "../utils/Cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { logger } from "../utils/logger.js"
+import { sendEmail } from "../utils/sendEmail.js"
 import jwt from "jsonwebtoken"
 import mongoose from "mongoose"
 
@@ -534,6 +535,162 @@ const getWatchHistory = asyncHandler(async (req, res) => {
         )
 })
 
+const forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    if (!email || !email.trim()) {
+        throw new ApiError(400, "Email is required");
+    }
+
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+
+    if (!user) {
+        throw new ApiError(404, "User with this email does not exist");
+    }
+
+    // Rate limiting: 60 seconds cooldown between OTP requests
+    if (user.forgotPasswordLastRequested) {
+        const timeDiffSeconds = (Date.now() - new Date(user.forgotPasswordLastRequested).getTime()) / 1000;
+        if (timeDiffSeconds < 60) {
+            const waitTime = Math.ceil(60 - timeDiffSeconds);
+            throw new ApiError(429, `Please wait ${waitTime} seconds before requesting another OTP`);
+        }
+    }
+
+    // Generate 6-digit random numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Set OTP and 10 minute expiry
+    user.forgotPasswordOTP = otp;
+    user.forgotPasswordOTPExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    user.forgotPasswordLastRequested = new Date();
+
+    await user.save({ validateBeforeSave: false });
+
+    // Send Email
+    const emailSubject = "VideoMela - Password Reset OTP";
+    const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1f2937; color: #ffffff; border-radius: 8px;">
+            <h2 style="color: #a855f7; text-align: center;">VideoMela Password Reset</h2>
+            <p>Hello <strong>${user.fullName}</strong>,</p>
+            <p>You requested to reset your password. Use the following 6-digit OTP code to verify your identity:</p>
+            <div style="background-color: #374151; text-align: center; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #38bdf8;">${otp}</span>
+            </div>
+            <p style="color: #9ca3af; font-size: 14px;">This OTP code is valid for <strong>10 minutes</strong>. If you did not request this, please ignore this email.</p>
+            <hr style="border-color: #374151; margin-top: 20px;" />
+            <p style="font-size: 12px; color: #6b7280; text-align: center;">VideoMela Security Team</p>
+        </div>
+    `;
+
+    await sendEmail({
+        email: user.email,
+        subject: emailSubject,
+        html: emailHtml,
+        text: `Your VideoMela Password Reset OTP is: ${otp}. Valid for 10 minutes.`,
+    });
+
+    return res.status(200).json(
+        new ApiResponse(200, { email: user.email }, "OTP sent successfully to your email")
+    );
+});
+
+const verifyOTP = asyncHandler(async (req, res) => {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        throw new ApiError(400, "Email and OTP are required");
+    }
+
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    if (!user.forgotPasswordOTP || !user.forgotPasswordOTPExpiry) {
+        throw new ApiError(400, "No OTP request found for this account. Please request a new OTP.");
+    }
+
+    if (new Date(user.forgotPasswordOTPExpiry).getTime() < Date.now()) {
+        throw new ApiError(400, "OTP has expired. Please request a new OTP.");
+    }
+
+    if (user.forgotPasswordOTP !== otp.toString().trim()) {
+        throw new ApiError(400, "Invalid OTP code. Please check and try again.");
+    }
+
+    // Generate short-lived reset token (signed JWT, expires in 15 mins)
+    const resetToken = jwt.sign(
+        {
+            _id: user._id,
+            email: user.email,
+            purpose: "password_reset",
+        },
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: "15m" }
+    );
+
+    // Save reset token in DB for verification
+    user.forgotPasswordResetToken = resetToken;
+    // Clear OTP after successful verification
+    user.forgotPasswordOTP = undefined;
+    user.forgotPasswordOTPExpiry = undefined;
+
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            { resetToken, email: user.email },
+            "OTP verified successfully. You can now reset your password."
+        )
+    );
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+    const { resetToken, newPassword } = req.body;
+
+    if (!resetToken || !newPassword) {
+        throw new ApiError(400, "Reset token and new password are required");
+    }
+
+    if (newPassword.length < 6) {
+        throw new ApiError(400, "New password must be at least 6 characters long");
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(resetToken, process.env.ACCESS_TOKEN_SECRET);
+    } catch (err) {
+        throw new ApiError(401, "Invalid or expired password reset token. Please restart the forgot password process.");
+    }
+
+    if (decoded.purpose !== "password_reset") {
+        throw new ApiError(401, "Invalid token purpose");
+    }
+
+    const user = await User.findById(decoded._id);
+
+    if (!user || user.forgotPasswordResetToken !== resetToken) {
+        throw new ApiError(401, "Invalid or expired password reset token");
+    }
+
+    // Update password (pre('save') hook will hash with bcrypt)
+    user.password = newPassword;
+
+    // Clear forgot password fields
+    user.forgotPasswordResetToken = undefined;
+    user.forgotPasswordOTP = undefined;
+    user.forgotPasswordOTPExpiry = undefined;
+    user.forgotPasswordLastRequested = undefined;
+
+    await user.save();
+
+    return res.status(200).json(
+        new ApiResponse(200, {}, "Password reset successfully. Please log in with your new password.")
+    );
+});
 
 export {
     registerUser,
@@ -546,5 +703,8 @@ export {
     updateUserAvatar,
     updateUserCoverImage,
     getUserChannelProfile,
-    getWatchHistory
+    getWatchHistory,
+    forgotPassword,
+    verifyOTP,
+    resetPassword
 }

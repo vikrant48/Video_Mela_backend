@@ -1,17 +1,20 @@
 import { Router } from "express";
-import { 
-    registerUser, 
-    loginUser, 
-    logoutUser, 
-    refreshAccessToken, 
-    changePassword, 
-    getCurrentUser, 
+import {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changePassword,
+    getCurrentUser,
     updateAccountDetails,
-    updateUserAvatar, 
-    updateUserCoverImage, 
-    getUserChannelProfile, 
-    getWatchHistory
-    } 
+    updateUserAvatar,
+    updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchHistory,
+    forgotPassword,
+    verifyOTP,
+    resetPassword
+}
     from "../controllers/user.controler.js";
 
 import { upload } from "../middlewares/multer.js";
@@ -33,10 +36,13 @@ router.route("/register").post(
     registerUser
 )
 router.route("/login").post(loginUser)
+router.route("/forgot-password").post(forgotPassword)
+router.route("/verify-otp").post(verifyOTP)
+router.route("/reset-password").post(resetPassword)
 
 //securd route
 router.route("/logout").post(verifyJWT, logoutUser)
-router.route("/refresh_token").post(refreshAccessToken )
+router.route("/refresh_token").post(refreshAccessToken)
 router.route("/change_password").post(verifyJWT, changePassword)
 router.route("/current_user").get(verifyJWT, getCurrentUser)
 router.route("/update_account").patch(verifyJWT, updateAccountDetails)
