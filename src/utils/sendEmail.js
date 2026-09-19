@@ -18,6 +18,7 @@ export const sendEmail = async ({ email, subject, text, html }) => {
                     user: smtpUser,
                     pass: smtpPass,
                 },
+                family: 4, // Force IPv4 to prevent ENETUNREACH IPv6 connection errors
             });
 
             const mailOptions = {
