@@ -1,6 +1,7 @@
 import mongoose, {isValidObjectId} from "mongoose"
 import {User} from "../models/user.model.js"
 import { Subscription } from "../models/subscription.model.js"
+import { createIgnoringDuplicate } from "../utils/createIgnoringDuplicate.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
@@ -33,7 +34,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
             );
     }
 
-    await Subscription.create({
+    await createIgnoringDuplicate(Subscription, {
         subscriber: req.user?._id,
         channel: channelId,
     });
@@ -135,6 +136,10 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 const getSubscribedChannels = asyncHandler(async (req, res) => {
     const { subscriberId } = req.params
 
+    if (!isValidObjectId(subscriberId)) {
+        throw new ApiError(400, "Invalid subscriberId");
+    }
+
     const subscribedChannels = await Subscription.aggregate([
         {
             $match: {
@@ -149,17 +154,24 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
                 as: "subscribedChannel",
                 pipeline: [
                     {
+                        // Newest published video only: drafts must not leak, and an
+                        // unsorted lookup's $last isn't guaranteed to be the newest
                         $lookup: {
                             from: "videos",
                             localField: "_id",
                             foreignField: "owner",
                             as: "videos",
+                            pipeline: [
+                                { $match: { isPublished: true } },
+                                { $sort: { createdAt: -1 } },
+                                { $limit: 1 },
+                            ],
                         },
                     },
                     {
                         $addFields: {
                             latestVideo: {
-                                $last: "$videos",
+                                $first: "$videos",
                             },
                         },
                     },

@@ -1,5 +1,7 @@
 import mongoose, {isValidObjectId} from "mongoose"
 import {Like} from "../models/like.model.js"
+import { createIgnoringDuplicate } from "../utils/createIgnoringDuplicate.js"
+import { visibleTo } from "../models/video.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
@@ -26,7 +28,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
             .json(new ApiResponse(200, { isLiked: false }));
     }
 
-    await Like.create({
+    await createIgnoringDuplicate(Like, {
         video: videoId,
         likedBy: req.user?._id,
     });
@@ -58,7 +60,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
             .json(new ApiResponse(200, { isLiked: false }));
     }
 
-    await Like.create({
+    await createIgnoringDuplicate(Like, {
         comment: commentId,
         likedBy: req.user?._id,
     });
@@ -91,7 +93,7 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
             .json(new ApiResponse(200, { tweetId, isLiked: false }));
     }
 
-    await Like.create({
+    await createIgnoringDuplicate(Like, {
         tweet: tweetId,
         likedBy: req.user?._id,
     });
@@ -117,6 +119,8 @@ const getLikedVideos = asyncHandler(async (req, res) => {
                 foreignField: "_id",
                 as: "likedVideo",
                 pipeline: [
+                    // hide videos unpublished since they were liked
+                    { $match: visibleTo(req.user._id) },
                     {
                         $lookup: {
                             from: "users",

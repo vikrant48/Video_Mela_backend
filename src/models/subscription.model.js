@@ -18,4 +18,7 @@ const subscriptionSchema = new Schema(
 )
 
 
+// One subscription per subscriber/channel pair, enforced by the database (concurrent toggles)
+subscriptionSchema.index({ subscriber: 1, channel: 1 }, { unique: true })
+
 export const Subscription = mongoose.model("Subscription", subscriptionSchema)

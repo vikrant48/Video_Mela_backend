@@ -22,8 +22,8 @@ const createTweet = asyncHandler(async (req, res) => {
     }
 
     return res
-        .status(200)
-        .json(new ApiResponse(200, tweet, "Tweet created successfully"));
+        .status(201)
+        .json(new ApiResponse(201, tweet, "Tweet created successfully"));
 })
 
 const getUserTweets = asyncHandler(async (req, res) => {
@@ -130,7 +130,7 @@ const updateTweet = asyncHandler(async (req, res) => {
     }
 
     if (tweet?.owner.toString() !== req.user?._id.toString()) {
-        throw new ApiError(400, "only owner can edit thier tweet");
+        throw new ApiError(403, "only owner can edit thier tweet");
     }
 
     const newTweet = await Tweet.findByIdAndUpdate(
@@ -167,7 +167,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
     }
 
     if (tweet?.owner.toString() !== req.user?._id.toString()) {
-        throw new ApiError(400, "only owner can delete thier tweet");
+        throw new ApiError(403, "only owner can delete thier tweet");
     }
 
     await Tweet.findByIdAndDelete(tweetId);

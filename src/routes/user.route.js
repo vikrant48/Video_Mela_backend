@@ -13,17 +13,27 @@ import {
     getWatchHistory,
     forgotPassword,
     verifyOTP,
-    resetPassword
+    resetPassword,
+    verifyEmailChange
 }
     from "../controllers/user.controler.js";
 
-import { upload } from "../middlewares/multer.js";
+import { uploadImage } from "../middlewares/multer.js";
 import { verifyJWT } from "../middlewares/auth.js"
+import {
+    loginLimiter,
+    loginAccountLimiter,
+    registerLimiter,
+    forgotPasswordLimiter,
+    otpLimiter,
+    emailChangeLimiter
+} from "../middlewares/rateLimit.js"
 
 const router = Router()
 
 router.route("/register").post(
-    upload.fields([
+    registerLimiter,
+    uploadImage.fields([
         {
             name: "avatar",
             maxCount: 1
@@ -35,19 +45,20 @@ router.route("/register").post(
     ]),
     registerUser
 )
-router.route("/login").post(loginUser)
-router.route("/forgot-password").post(forgotPassword)
-router.route("/verify-otp").post(verifyOTP)
-router.route("/reset-password").post(resetPassword)
+router.route("/login").post(loginLimiter, loginAccountLimiter, loginUser)
+router.route("/forgot-password").post(forgotPasswordLimiter, forgotPassword)
+router.route("/verify-otp").post(otpLimiter, verifyOTP)
+router.route("/reset-password").post(otpLimiter, resetPassword)
 
 //securd route
 router.route("/logout").post(verifyJWT, logoutUser)
 router.route("/refresh_token").post(refreshAccessToken)
 router.route("/change_password").post(verifyJWT, changePassword)
 router.route("/current_user").get(verifyJWT, getCurrentUser)
-router.route("/update_account").patch(verifyJWT, updateAccountDetails)
-router.route("/avatar").patch(verifyJWT, upload.single("avatar"), updateUserAvatar)
-router.route("/coverImage").patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage)
+router.route("/update_account").patch(verifyJWT, emailChangeLimiter, updateAccountDetails)
+router.route("/verify-email-change").post(verifyJWT, otpLimiter, verifyEmailChange)
+router.route("/avatar").patch(verifyJWT, uploadImage.single("avatar"), updateUserAvatar)
+router.route("/coverImage").patch(verifyJWT, uploadImage.single("coverImage"), updateUserCoverImage)
 router.route("/c/:username").get(verifyJWT, getUserChannelProfile)
 router.route("/history").get(verifyJWT, getWatchHistory)
 

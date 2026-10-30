@@ -40,19 +40,29 @@ import jwt from "jsonwebtoken"
 import { User } from "../models/user.model.js";
 import { logger } from "../utils/logger.js";
 
+// Errors jsonwebtoken throws for a bad/expired token (as opposed to infrastructure failures)
+export const JWT_ERRORS = ["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"]
+
 export const verifyJWT = asyncHandler(async (req, _, next) => {
     try {
         const cookieToken = req.cookies?.accessToken;
         const headerToken = req.header("Authorization")?.replace("Bearer ", "");
         const token = cookieToken || headerToken;
-        const tokenSource = cookieToken ? "Cookie" : (headerToken ? "Authorization Header" : "None");
 
+        // Not logged: every anonymous visitor hits this (e.g. the app's startup session check)
         if (!token || typeof token !== "string") {
-            logger.warn(`verifyJWT 401 Unauthorized: Token is missing or invalid`);
             throw new ApiError(401, "Unauthorized request: Token is missing or invalid");
         }
 
         const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
+
+        // Only access tokens may authenticate. Tokens issued before the typ claim existed have no typ;
+        // legacy password-reset tokens (signed with this secret before) are recognised by their purpose claim.
+        // TODO: once pre-typ access tokens have expired (ACCESS_TOKEN_EXPIRY), require typ === "access".
+        if ((decodedToken.typ && decodedToken.typ !== "access") || decodedToken.purpose) {
+            logger.warn(`verifyJWT 401 Unauthorized: wrong token type`);
+            throw new ApiError(401, "Unauthorized request: invalid token type")
+        }
 
         const user = await User.findById(decodedToken?._id).select("-password -refreshToken")
 
@@ -61,11 +71,25 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
             throw new ApiError(401, "Invalid Access Token: User not found")
         }
 
-        logger.info(`verifyJWT User authenticated: @${user.username} (ID: ${user._id}) [Source: ${tokenSource}]`);
+        // Tokens issued before the last password change/reset are revoked.
+        // iat has 1s resolution, so compare in whole seconds to keep tokens issued right after the change.
+        if (user.passwordChangedAt && decodedToken.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)) {
+            logger.warn(`verifyJWT 401 Unauthorized: token issued before password change for @${user.username}`);
+            throw new ApiError(401, "Session expired: password was changed. Please log in again.")
+        }
+
+        // No per-request success log: it wrote every user's username/ID on every call
         req.user = user;
         next()
     } catch (error) {
-        logger.warn(`verifyJWT Authentication failed: ${error?.message || "Invalid access token"}`);
-        throw new ApiError(401, error?.message || "Invalid access token")
+        if (error instanceof ApiError) throw error
+        // Token problems (expired, bad signature, malformed) are the client's: 401.
+        // Anything else (e.g. the database is down) is a server fault: rethrow so it becomes a
+        // generic 500, instead of a 401 that leaks the error text and logs the user out.
+        if (JWT_ERRORS.includes(error?.name)) {
+            logger.warn(`verifyJWT Authentication failed: ${error.message}`);
+            throw new ApiError(401, error.message)
+        }
+        throw error
     }
 })

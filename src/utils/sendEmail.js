@@ -1,6 +1,10 @@
 import nodemailer from "nodemailer";
 import { logger } from "./logger.js";
 
+// Logs identify the recipient without writing full addresses
+const maskEmail = (email) => String(email).replace(/^(.)[^@]*/, "$1***");
+
+// Returns the send info, or null on failure (never throws), so callers decide how to react
 export const sendEmail = async ({ email, subject, text, html }) => {
     try {
         const smtpHost = process.env.SMTP_HOST;
@@ -30,22 +34,25 @@ export const sendEmail = async ({ email, subject, text, html }) => {
             };
 
             const info = await transporter.sendMail(mailOptions);
-            logger.info(`Email sent to ${email}: ${info.messageId}`);
+            logger.info(`Email sent to ${maskEmail(email)}: ${info.messageId}`);
             return info;
-        } else {
-            // Fallback for development/testing when SMTP env vars are not set
-            logger.info(`[MAILER DEV FALLBACK] To: ${email} | Subject: "${subject}"`);
-            logger.info(`[MAILER DEV FALLBACK CONTENT]:\n${text || html}`);
-            console.log(`\n============== [OTP EMAIL SENT] ==============`);
-            console.log(`To: ${email}`);
-            console.log(`Subject: ${subject}`);
-            console.log(`Content:\n${text || html}`);
-            console.log(`=============================================\n`);
-            return { messageId: "dev-fallback-message-id" };
         }
+
+        // Without SMTP in production, fail loudly but never write the message (it holds codes) to logs
+        if (process.env.NODE_ENV === "production") {
+            logger.error(`SMTP is not configured: email "${subject}" to ${maskEmail(email)} was NOT sent`);
+            return null;
+        }
+
+        // Development/testing fallback: print the email (including any code) to the console
+        console.log(`\n============== [DEV EMAIL - not sent] ==============`);
+        console.log(`To: ${email}`);
+        console.log(`Subject: ${subject}`);
+        console.log(`Content:\n${text || html}`);
+        console.log(`====================================================\n`);
+        return { messageId: "dev-fallback-message-id" };
     } catch (error) {
-        logger.error(`Error sending email to ${email}: ${error.message}`);
-        // Log error but don't crash - return false so controller can handle error gracefully
+        logger.error(`Error sending email to ${maskEmail(email)}: ${error.message}`);
         return null;
     }
 };

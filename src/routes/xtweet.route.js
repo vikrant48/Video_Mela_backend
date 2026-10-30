@@ -6,11 +6,11 @@ import {
     updateTweet,
     getUserTweets,
 } from "../controllers/tweet.controler.js";
-import { upload } from "../middlewares/multer.js";
+import { parseForm } from "../middlewares/multer.js";
 
 const router = Router();
 
-router.use(verifyJWT, upload.none()); // Apply verifyJWT middleware to all routes in this file
+router.use(verifyJWT, parseForm); // Apply verifyJWT middleware to all routes in this file
 
 router.route("/").post(createTweet);
 router.route("/user/:userId").get(getUserTweets);

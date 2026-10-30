@@ -51,3 +51,9 @@ const videoSchema = new Schema(
 videoSchema.plugin(mongooseAggregatePaginate)
 
 export const Video = mongoose.model("Video", videoSchema)
+
+// Aggregation $match condition: videos a viewer may see (published, or their own drafts).
+// viewerId must be an ObjectId (aggregation pipelines are not cast).
+export const visibleTo = (viewerId) => ({
+    $or: [{ isPublished: true }, { owner: viewerId }]
+})

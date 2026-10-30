@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { upload } from "../middlewares/multer.js";
+import { uploadImage, uploadVideo } from "../middlewares/multer.js";
 import { verifyJWT } from "../middlewares/auth.js";
+import { videoUploadLimiter } from "../middlewares/rateLimit.js";
 import {
     deleteVideo,
     getAllVideos,
@@ -19,7 +20,8 @@ router
     .get(getAllVideos)
     .post(
         verifyJWT,
-        upload.fields([
+        videoUploadLimiter,
+        uploadVideo.fields([
             {
                 name: "videoFile",
                 maxCount: 1
@@ -36,7 +38,7 @@ router
     .route("/v/:videoId")
     .get(verifyJWT, getVideoById)
     .delete(verifyJWT, deleteVideo)
-    .patch(verifyJWT, upload.single("thumbnail"), updateVideo);
+    .patch(verifyJWT, uploadImage.single("thumbnail"), updateVideo);
 
 router.route("/toggle/publish/:videoId").patch(verifyJWT, togglePublishStatus);
 

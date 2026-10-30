@@ -1,5 +1,4 @@
 import { v2 as cloudinary } from 'cloudinary';
-import fs from "fs"
 import { logger } from "./logger.js"
 
 
@@ -9,48 +8,23 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const uploadonCloudinary = async (fileBuffer, options = {}) => {
+// Uploads a file from disk. The SDK streams it, so it is never fully loaded into memory.
+// The local temp file is deleted by the cleanupTempFiles middleware, not here.
+// Returns null on failure.
+const uploadonCloudinary = async (localFilePath, options = {}) => {
     try {
-        if (!fileBuffer) return null
+        if (!localFilePath) return null
 
-        return new Promise((resolve, reject) => {
-            cloudinary.uploader.upload_stream(
-                {
-                    resource_type: 'auto',
-                    folder: options.folder || 'uploads',
-                    ...options
-                },
-                (error, result) => {
-                    if (error) {
-                        reject(error)
-                    } else {
-                        resolve(result)
-                    }
-                }
-            ).end(fileBuffer)
+        return await cloudinary.uploader.upload(localFilePath, {
+            // 'image' unless the caller says 'video': with 'auto', a non-media file would be
+            // stored as a downloadable 'raw' asset instead of being rejected by Cloudinary
+            resource_type: 'image',
+            folder: options.folder || 'uploads',
+            ...options
         })
-
     } catch (error) {
         logger.error('Cloudinary upload error:', error)
         return null
-    }
-}
-
-// Legacy function for backward compatibility (file path uploads)
-const uploadFileToCloudinary = async (localFilePath) => {
-    try {
-        if (!localFilePath) return null
-        // upload
-        const uploadedFile = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: 'auto'
-        })
-        fs.unlinkSync(localFilePath) // this will also unlink from local path 
-        return uploadedFile
-
-    } catch (error) {
-        fs.unlinkSync(localFilePath)
-        return null
-
     }
 }
 
@@ -68,4 +42,4 @@ const deleteonCloudinary = async (public_id, resource_type = "image") => {
     }
 }
 
-export { uploadonCloudinary, uploadFileToCloudinary, deleteonCloudinary }
+export { uploadonCloudinary, deleteonCloudinary }

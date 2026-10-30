@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.js";
-import { upload } from "../middlewares/multer.js";
+import { parseForm } from "../middlewares/multer.js";
 import {
     createPlaylist,
     updatePlaylist,
@@ -13,7 +13,7 @@ import {
 
 const router = Router();
 
-router.use(verifyJWT, upload.none()); // Apply verifyJWT middleware to all routes in this file
+router.use(verifyJWT, parseForm); // Apply verifyJWT middleware to all routes in this file
 
 router.route("/").post(createPlaylist);
 

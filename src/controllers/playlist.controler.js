@@ -3,7 +3,7 @@ import {Playlist} from "../models/playlist.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
-import { Video} from '../models/video.model.js'
+import { Video, visibleTo } from '../models/video.model.js'
 
 
 const createPlaylist = asyncHandler(async (req, res) => {
@@ -26,8 +26,8 @@ const createPlaylist = asyncHandler(async (req, res) => {
     }
 
     return res
-        .status(200)
-        .json(new ApiResponse(200, playlist, "playlist created successfully"));
+        .status(201)
+        .json(new ApiResponse(201, playlist, "playlist created successfully"));
 
 
 })
@@ -51,7 +51,9 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
                 from: "videos",
                 localField: "videos",
                 foreignField: "_id",
-                as: "videos"
+                as: "videos",
+                // count only videos this viewer may see
+                pipeline: [{ $match: visibleTo(req.user._id) }]
             }
         },
         {
@@ -107,11 +109,10 @@ const getPlaylistById = asyncHandler(async (req, res) => {
                 localField: "videos",
                 foreignField: "_id",
                 as: "videos",
-            }
-        },
-        {
-            $match: {
-                "videos.isPublished": true
+                // Filter per video (other users' drafts must not leak). The old $match on
+                // "videos.isPublished" kept every video if any one was published, and dropped
+                // the whole playlist (200 with no data) if none were.
+                pipeline: [{ $match: visibleTo(req.user._id) }]
             }
         },
         {
@@ -181,15 +182,16 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     if (!playlist) {
         throw new ApiError(404, "Playlist not found");
     }
-    if (!video) {
-        throw new ApiError(404, "video not found");
+    if (playlist.owner?.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, "only owner can add video to thier playlist");
     }
 
+    // Other users' unpublished videos are treated as not existing
     if (
-        (playlist.owner?.toString() && video.owner.toString()) !==
-        req.user?._id.toString()
+        !video ||
+        (!video.isPublished && video.owner?.toString() !== req.user?._id.toString())
     ) {
-        throw new ApiError(400, "only owner can add video to thier playlist");
+        throw new ApiError(404, "video not found");
     }
 
     const updatedPlaylist = await Playlist.findByIdAndUpdate(
@@ -228,22 +230,16 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid PlaylistId or videoId");
     }
 
+    // No video lookup: the owner must be able to remove entries for videos that were since deleted
     const playlist = await Playlist.findById(playlistId);
-    const video = await Video.findById(videoId);
 
     if (!playlist) {
         throw new ApiError(404, "Playlist not found");
     }
-    if (!video) {
-        throw new ApiError(404, "video not found");
-    }
 
-    if (
-        (playlist.owner?.toString() && video.owner.toString()) !==
-        req.user?._id.toString()
-    ) {
+    if (playlist.owner?.toString() !== req.user?._id.toString()) {
         throw new ApiError(
-            404,
+            403,
             "only owner can remove video from thier playlist"
         );
     }
@@ -285,7 +281,7 @@ const deletePlaylist = asyncHandler(async (req, res) => {
     }
 
     if (playlist.owner.toString() !== req.user?._id.toString()) {
-        throw new ApiError(400, "only owner can delete the playlist");
+        throw new ApiError(403, "only owner can delete the playlist");
     }
 
     await Playlist.findByIdAndDelete(playlist?._id);
@@ -321,7 +317,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
     }
 
     if (playlist.owner.toString() !== req.user?._id.toString()) {
-        throw new ApiError(400, "only owner can edit the playlist");
+        throw new ApiError(403, "only owner can edit the playlist");
     }
 
     const updatedPlaylist = await Playlist.findByIdAndUpdate(

@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+import mongoose, { isValidObjectId } from "mongoose"
 import {Comment} from "../models/comment.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
@@ -10,7 +10,11 @@ const getVideoComments = asyncHandler(async (req, res) => {
     // get all comments for a video
 
     const {videoId} = req.params
-    const {page = 1, limit = 10} = req.query
+    const {page, limit} = req.query
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid videoId");
+    }
 
     const video = await Video.findById(videoId);
 
@@ -77,9 +81,10 @@ const getVideoComments = asyncHandler(async (req, res) => {
         }
     ]);
 
+    // Defaults for missing/non-numeric values; page size capped like the video list
     const options = {
-        page: parseInt(page, 10),
-        limit: parseInt(limit, 10)
+        page: Math.max(1, parseInt(page, 10) || 1),
+        limit: Math.min(100, Math.max(1, parseInt(limit, 10) || 10))
     };
 
     const comments = await Comment.aggregatePaginate(
@@ -99,8 +104,12 @@ const addComment = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
     const { content } = req.body;
 
-    if (!content) {
+    if (typeof content !== "string" || !content.trim()) {
         throw new ApiError(400, "Content is required");
+    }
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid videoId");
     }
 
     const video = await Video.findById(videoId);
@@ -131,8 +140,12 @@ const updateComment = asyncHandler(async (req, res) => {
     const { content } = req.body;
 
 
-    if (!content) {
+    if (typeof content !== "string" || !content.trim()) {
         throw new ApiError(400, "content is required");
+    }
+
+    if (!isValidObjectId(commentId)) {
+        throw new ApiError(400, "Invalid commentId");
     }
 
     const comment = await Comment.findById(commentId);
@@ -142,7 +155,7 @@ const updateComment = asyncHandler(async (req, res) => {
     }
 
     if (comment?.owner.toString() !== req.user?._id.toString()) {
-        throw new ApiError(400, "only comment owner can edit their comment");
+        throw new ApiError(403, "only comment owner can edit their comment");
     }
 
     const updatedComment = await Comment.findByIdAndUpdate(
@@ -171,6 +184,10 @@ const deleteComment = asyncHandler(async (req, res) => {
 
     const { commentId } = req.params;
 
+    if (!isValidObjectId(commentId)) {
+        throw new ApiError(400, "Invalid commentId");
+    }
+
     const comment = await Comment.findById(commentId);
 
     if (!comment) {
@@ -178,14 +195,14 @@ const deleteComment = asyncHandler(async (req, res) => {
     }
 
     if (comment?.owner.toString() !== req.user?._id.toString()) {
-        throw new ApiError(400, "only comment owner can delete their comment");
+        throw new ApiError(403, "only comment owner can delete their comment");
     }
 
     await Comment.findByIdAndDelete(commentId);
 
+    // All likes on the deleted comment, not just this user's own
     await Like.deleteMany({
-        comment: commentId,
-        likedBy: req.user
+        comment: commentId
     });
 
     return res

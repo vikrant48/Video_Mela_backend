@@ -16,7 +16,7 @@ const userSchema = new Schema(
             type: String,
             required: true,
             unique: true,
-            lowecase: true,
+            lowercase: true,
             trim: true,
         },
         fullName: {
@@ -51,23 +51,70 @@ const userSchema = new Schema(
         refreshToken: {
             type: String
         },
+        // Access tokens issued before this are rejected (see verifyJWT)
+        passwordChangedAt: {
+            type: Date
+        },
         forgotPasswordOTP: {
             type: String
         },
         forgotPasswordOTPExpiry: {
             type: Date
         },
+        forgotPasswordOTPAttempts: {
+            type: Number,
+            default: 0
+        },
         forgotPasswordResetToken: {
             type: String
         },
         forgotPasswordLastRequested: {
             type: Date
+        },
+        // Email change awaiting confirmation via a code sent to the new address
+        pendingEmail: {
+            type: String,
+            lowercase: true,
+            trim: true
+        },
+        emailChangeOTP: {
+            type: String
+        },
+        emailChangeOTPExpiry: {
+            type: Date
+        },
+        emailChangeOTPAttempts: {
+            type: Number,
+            default: 0
         }
     },
     {
         timestamps: true
     }
 )
+
+// Never sent to clients, whichever endpoint serializes a user document (res.json calls toJSON).
+// Server code can still read them; aggregation results are unaffected (they project explicitly).
+const PRIVATE_FIELDS = [
+    "password",
+    "refreshToken",
+    "passwordChangedAt",
+    "forgotPasswordOTP",
+    "forgotPasswordOTPExpiry",
+    "forgotPasswordOTPAttempts",
+    "forgotPasswordResetToken",
+    "forgotPasswordLastRequested",
+    "emailChangeOTP",
+    "emailChangeOTPExpiry",
+    "emailChangeOTPAttempts"
+]
+
+userSchema.set("toJSON", {
+    transform: (doc, ret) => {
+        for (const field of PRIVATE_FIELDS) delete ret[field]
+        return ret
+    }
+})
 
 // Pre middleware functions are executed one after another, when each middleware calls next.
 userSchema.pre("save", async function (next) {
@@ -87,7 +134,8 @@ userSchema.methods.generateAccessToken = function () {
             _id: this._id,
             email: this.email,
             username: this.username,
-            fullName: this.fullName
+            fullName: this.fullName,
+            typ: "access"
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
